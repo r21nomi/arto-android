@@ -1,0 +1,11 @@
+.gradle
+local.properties
+secrets.properties
+.DS_Store
+/build
+google-services.json
+release.jks
+
+# Android studio files
+.idea/*
+*.iml
