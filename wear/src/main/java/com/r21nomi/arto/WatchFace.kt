@@ -24,6 +24,7 @@ import android.graphics.*
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
+import android.support.v4.content.ContextCompat
 import android.support.wearable.watchface.CanvasWatchFaceService
 import android.support.wearable.watchface.WatchFaceService
 import android.support.wearable.watchface.WatchFaceStyle
@@ -34,80 +35,76 @@ import java.lang.ref.WeakReference
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-/**
- * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
- * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
- */
-class MyWatchFace : CanvasWatchFaceService() {
+class WatchFace : CanvasWatchFaceService() {
+
+    companion object {
+        private val NORMAL_TYPEFACE = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+
+        /**
+         * Update rate in milliseconds for interactive mode. We update once a second since seconds are
+         * displayed in interactive mode.
+         */
+        private val INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1)
+
+        /**
+         * Handler message id for updating the time periodically in interactive mode.
+         */
+        private val MSG_UPDATE_TIME = 0
+    }
 
     override fun onCreateEngine(): Engine {
         return Engine()
     }
 
-    private class EngineHandler(reference: MyWatchFace.Engine) : Handler() {
-        private val mWeakReference: WeakReference<MyWatchFace.Engine>
+    private class EngineHandler(reference: WatchFace.Engine) : Handler() {
 
-        init {
-            mWeakReference = WeakReference(reference)
-        }
+        private val weakReference: WeakReference<WatchFace.Engine> = WeakReference(reference)
 
         override fun handleMessage(msg: Message) {
-            val engine = mWeakReference.get()
-            if (engine != null) {
-                when (msg.what) {
-                    MSG_UPDATE_TIME -> engine.handleUpdateTimeMessage()
-                }
+            val engine = weakReference.get() ?: return
+
+            when (msg.what) {
+                MSG_UPDATE_TIME -> engine.handleUpdateTimeMessage()
             }
         }
     }
 
     inner class Engine : CanvasWatchFaceService.Engine() {
-        internal val mUpdateTimeHandler: Handler = EngineHandler(this)
-        internal var mRegisteredTimeZoneReceiver = false
-        internal val mBackgroundPaint: Paint by lazy { Paint() }
-        internal val mTextPaint: Paint by lazy { createTextPaint(resources.getColor(R.color.digital_text)) }
-        internal var mAmbient: Boolean = false
-        internal val mCalendar: Calendar by lazy { Calendar.getInstance() }
-        internal val mTimeZoneReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        val updateTimeHandler: Handler = EngineHandler(this)
+        var registeredTimeZoneReceiver = false
+        val backgroundPaint: Paint by lazy { Paint() }
+        val textPaint: Paint by lazy { createTextPaint(ContextCompat.getColor(applicationContext, R.color.time)) }
+        var ambient: Boolean = false
+        val calendar: Calendar by lazy { Calendar.getInstance() }
+        val timeZoneReceiver: BroadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                mCalendar.timeZone = TimeZone.getDefault()
+                calendar.timeZone = TimeZone.getDefault()
                 invalidate()
             }
         }
-        internal var mXOffset: Float = 0.toFloat()
-        internal var mYOffset: Float = 0.toFloat()
+        var xOffset: Float = 0f
+        var yOffset: Float = 0f
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
          * disable anti-aliasing in ambient mode.
          */
-        internal var mLowBitAmbient: Boolean = false
+        var lowBitAmbient: Boolean = false
 
         override fun onCreate(holder: SurfaceHolder?) {
             super.onCreate(holder)
 
-            setWatchFaceStyle(WatchFaceStyle.Builder(this@MyWatchFace)
-                    .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
-                    .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
-                    .setShowSystemUiTime(false)
+            setWatchFaceStyle(WatchFaceStyle.Builder(this@WatchFace)
                     .setAcceptsTapEvents(true)
                     .build())
-            val resources = this@MyWatchFace.resources
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset)
-            mBackgroundPaint.color = resources.getColor(R.color.background)
+
+            yOffset = resources.getDimension(R.dimen.time_y_offset)
+            backgroundPaint.color = ContextCompat.getColor(applicationContext, R.color.background)
         }
 
         override fun onDestroy() {
-            mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME)
+            updateTimeHandler.removeMessages(MSG_UPDATE_TIME)
             super.onDestroy()
-        }
-
-        private fun createTextPaint(textColor: Int): Paint {
-            val paint = Paint()
-            paint.color = textColor
-            paint.typeface = NORMAL_TYPEFACE
-            paint.isAntiAlias = true
-            return paint
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
@@ -117,7 +114,7 @@ class MyWatchFace : CanvasWatchFaceService() {
                 registerReceiver()
 
                 // Update time zone in case it changed while we weren't visible.
-                mCalendar.timeZone = TimeZone.getDefault()
+                calendar.timeZone = TimeZone.getDefault()
                 invalidate()
             } else {
                 unregisterReceiver()
@@ -128,44 +125,27 @@ class MyWatchFace : CanvasWatchFaceService() {
             updateTimer()
         }
 
-        private fun registerReceiver() {
-            if (mRegisteredTimeZoneReceiver) {
-                return
-            }
-            mRegisteredTimeZoneReceiver = true
-            val filter = IntentFilter(Intent.ACTION_TIMEZONE_CHANGED)
-            this@MyWatchFace.registerReceiver(mTimeZoneReceiver, filter)
-        }
-
-        private fun unregisterReceiver() {
-            if (!mRegisteredTimeZoneReceiver) {
-                return
-            }
-            mRegisteredTimeZoneReceiver = false
-            this@MyWatchFace.unregisterReceiver(mTimeZoneReceiver)
-        }
-
         override fun onApplyWindowInsets(insets: WindowInsets) {
             super.onApplyWindowInsets(insets)
 
             // Load resources that have alternate values for round watches.
-            val resources = this@MyWatchFace.resources
+            val resources = this@WatchFace.resources
             val isRound = insets.isRound
-            mXOffset = resources.getDimension(if (isRound)
-                R.dimen.digital_x_offset_round
+            xOffset = resources.getDimension(if (isRound)
+                R.dimen.time_x_offset_round
             else
-                R.dimen.digital_x_offset)
+                R.dimen.time_x_offset)
             val textSize = resources.getDimension(if (isRound)
-                R.dimen.digital_text_size_round
+                R.dimen.time_text_size_round
             else
-                R.dimen.digital_text_size)
+                R.dimen.time_text_size)
 
-            mTextPaint.textSize = textSize
+            textPaint.textSize = textSize
         }
 
         override fun onPropertiesChanged(properties: Bundle?) {
             super.onPropertiesChanged(properties)
-            mLowBitAmbient = properties!!.getBoolean(WatchFaceService.PROPERTY_LOW_BIT_AMBIENT, false)
+            lowBitAmbient = properties!!.getBoolean(WatchFaceService.PROPERTY_LOW_BIT_AMBIENT, false)
         }
 
         override fun onTimeTick() {
@@ -175,10 +155,10 @@ class MyWatchFace : CanvasWatchFaceService() {
 
         override fun onAmbientModeChanged(inAmbientMode: Boolean) {
             super.onAmbientModeChanged(inAmbientMode)
-            if (mAmbient != inAmbientMode) {
-                mAmbient = inAmbientMode
-                if (mLowBitAmbient) {
-                    mTextPaint.isAntiAlias = !inAmbientMode
+            if (ambient != inAmbientMode) {
+                ambient = inAmbientMode
+                if (lowBitAmbient) {
+                    textPaint.isAntiAlias = !inAmbientMode
                 }
                 invalidate()
             }
@@ -201,47 +181,74 @@ class MyWatchFace : CanvasWatchFaceService() {
                 WatchFaceService.TAP_TYPE_TAP ->
                     // The user has completed the tap gesture.
                     // TODO: Add code to handle the tap gesture.
-                    Toast.makeText(applicationContext, R.string.message, Toast.LENGTH_SHORT)
-                            .show()
+                    Toast.makeText(applicationContext, R.string.message, Toast.LENGTH_SHORT).show()
             }// The user has started touching the screen.
             // The user has started a different gesture or otherwise cancelled the tap.
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas?, bounds: Rect?) {
+            if (canvas == null || bounds == null) return
+
             // Draw the background.
             if (isInAmbientMode) {
-                canvas!!.drawColor(Color.BLACK)
+                canvas.drawColor(Color.BLACK)
             } else {
-                canvas!!.drawRect(0f, 0f, bounds!!.width().toFloat(), bounds.height().toFloat(), mBackgroundPaint)
+                canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), backgroundPaint)
             }
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             val now = System.currentTimeMillis()
-            mCalendar.timeInMillis = now
+            calendar.timeInMillis = now
 
-            val text = if (mAmbient)
-                String.format("%d:%02d", mCalendar.get(Calendar.HOUR),
-                        mCalendar.get(Calendar.MINUTE))
-            else
-                String.format("%d:%02d:%02d", mCalendar.get(Calendar.HOUR),
-                        mCalendar.get(Calendar.MINUTE), mCalendar.get(Calendar.SECOND))
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint)
+            val text = if (ambient) {
+                "${calendar.get(Calendar.HOUR)}:${calendar.get(Calendar.MINUTE)}"
+            } else {
+                "${calendar.get(Calendar.HOUR)}:${calendar.get(Calendar.MINUTE)}:${calendar.get(Calendar.SECOND)}"
+            }
+
+            canvas.drawText(text, xOffset, yOffset, textPaint)
+        }
+
+        private fun createTextPaint(textColor: Int): Paint {
+            val paint = Paint()
+            paint.color = textColor
+            paint.typeface = NORMAL_TYPEFACE
+            paint.isAntiAlias = true
+            return paint
+        }
+
+        private fun registerReceiver() {
+            if (registeredTimeZoneReceiver) {
+                return
+            }
+            registeredTimeZoneReceiver = true
+            val filter = IntentFilter(Intent.ACTION_TIMEZONE_CHANGED)
+            this@WatchFace.registerReceiver(timeZoneReceiver, filter)
+        }
+
+        private fun unregisterReceiver() {
+            if (!registeredTimeZoneReceiver) {
+                return
+            }
+            registeredTimeZoneReceiver = false
+            this@WatchFace.unregisterReceiver(timeZoneReceiver)
         }
 
         /**
-         * Starts the [.mUpdateTimeHandler] timer if it should be running and isn't currently
+         * Starts the [.updateTimeHandler] timer if it should be running and isn't currently
          * or stops it if it shouldn't be running but currently is.
          */
         private fun updateTimer() {
-            mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME)
+            updateTimeHandler.removeMessages(MSG_UPDATE_TIME)
+
             if (shouldTimerBeRunning()) {
-                mUpdateTimeHandler.sendEmptyMessage(MSG_UPDATE_TIME)
+                updateTimeHandler.sendEmptyMessage(MSG_UPDATE_TIME)
             }
         }
 
         /**
-         * Returns whether the [.mUpdateTimeHandler] timer should be running. The timer should
+         * Returns whether the [.updateTimeHandler] timer should be running. The timer should
          * only run when we're visible and in interactive mode.
          */
         private fun shouldTimerBeRunning(): Boolean {
@@ -253,26 +260,12 @@ class MyWatchFace : CanvasWatchFaceService() {
          */
         fun handleUpdateTimeMessage() {
             invalidate()
+
             if (shouldTimerBeRunning()) {
                 val timeMs = System.currentTimeMillis()
                 val delayMs = INTERACTIVE_UPDATE_RATE_MS - timeMs % INTERACTIVE_UPDATE_RATE_MS
-                mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs)
+                updateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs)
             }
         }
-    }
-
-    companion object {
-        private val NORMAL_TYPEFACE = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
-
-        /**
-         * Update rate in milliseconds for interactive mode. We update once a second since seconds are
-         * displayed in interactive mode.
-         */
-        private val INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1)
-
-        /**
-         * Handler message id for updating the time periodically in interactive mode.
-         */
-        private val MSG_UPDATE_TIME = 0
     }
 }
