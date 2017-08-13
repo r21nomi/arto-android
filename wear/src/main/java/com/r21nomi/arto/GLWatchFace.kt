@@ -24,9 +24,9 @@ class GLWatchFace : Gles2WatchFaceService() {
     inner class Engine : Gles2WatchFaceService.Engine() {
 
         private val VERTICES: FloatArray = floatArrayOf(
-                -1.0f, 1.0f, 0.0f,  // ↖ left top︎
+                -1.0f, 1.0f, 0.0f, // ↖ left top︎
                 -1.0f, -1.0f, 0.0f, // ↙︎ left bottom
-                1.0f, 1.0f, 0.0f,   // ↗︎ right top
+                1.0f, 1.0f, 0.0f, // ↗︎ right top
                 1.0f, -1.0f, 0.0f   // ↘︎ right bottom
         )
 
@@ -57,6 +57,12 @@ class GLWatchFace : Gles2WatchFaceService() {
         private var positionsBuffer: FloatBuffer? = null
         private var texcoordBuffer: FloatBuffer? = null
 
+        private var currentIndex: Int = 0
+        private val fragmentShaderResArray = listOf(
+                R.raw.fragment_1,
+                R.raw.fragment_2
+        )
+
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
 
@@ -67,28 +73,7 @@ class GLWatchFace : Gles2WatchFaceService() {
         override fun onGlContextCreated() {
             super.onGlContextCreated()
 
-            programId = GLES20.glCreateProgram()
-
-            GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER).let { vertexShader ->
-                GLES20.glShaderSource(vertexShader, loadRawResource(applicationContext, R.raw.ripple_vertex))
-                GLES20.glCompileShader(vertexShader)
-                GLES20.glAttachShader(programId, vertexShader)
-            }
-
-            GLES20.glCreateShader(GLES20.GL_FRAGMENT_SHADER).let { fragmentShader ->
-                GLES20.glShaderSource(fragmentShader, loadRawResource(applicationContext, R.raw.ripple_fragment))
-                GLES20.glCompileShader(fragmentShader)
-                GLES20.glAttachShader(programId, fragmentShader)
-            }
-
-            GLES20.glLinkProgram(programId)
-            GLES20.glUseProgram(programId)
-
-            positionsLoc = GLES20.glGetAttribLocation(programId, "position")
-            texcoordLoc = GLES20.glGetAttribLocation(programId, "texcoord")
-
-            timeLoc = GLES20.glGetUniformLocation(programId, "time")
-            resolutionLoc = GLES20.glGetUniformLocation(programId, "resolution")
+            init()
         }
 
         override fun onGlSurfaceCreated(width: Int, height: Int) {
@@ -136,6 +121,12 @@ class GLWatchFace : Gles2WatchFaceService() {
 
             if (ambient != inAmbientMode) {
                 ambient = inAmbientMode
+
+                if (!ambient) {
+                    // TODO: Change shader from sender request.
+                    init()
+                }
+
                 invalidate()
             }
         }
@@ -144,6 +135,31 @@ class GLWatchFace : Gles2WatchFaceService() {
             super.onPropertiesChanged(properties)
 
             lowBitAmbient = properties.getBoolean(WatchFaceService.PROPERTY_LOW_BIT_AMBIENT, false)
+        }
+
+        private fun init() {
+            programId = GLES20.glCreateProgram()
+
+            GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER).let { vertexShader ->
+                GLES20.glShaderSource(vertexShader, loadRawResource(applicationContext, R.raw.vertex))
+                GLES20.glCompileShader(vertexShader)
+                GLES20.glAttachShader(programId, vertexShader)
+            }
+
+            GLES20.glCreateShader(GLES20.GL_FRAGMENT_SHADER).let { fragmentShader ->
+                GLES20.glShaderSource(fragmentShader, loadRawResource(applicationContext, getFragmentShaderRes()))
+                GLES20.glCompileShader(fragmentShader)
+                GLES20.glAttachShader(programId, fragmentShader)
+            }
+
+            GLES20.glLinkProgram(programId)
+            GLES20.glUseProgram(programId)
+
+            positionsLoc = GLES20.glGetAttribLocation(programId, "position")
+            texcoordLoc = GLES20.glGetAttribLocation(programId, "texcoord")
+
+            timeLoc = GLES20.glGetUniformLocation(programId, "time")
+            resolutionLoc = GLES20.glGetUniformLocation(programId, "resolution")
         }
 
         @Throws(IOException::class)
@@ -161,6 +177,15 @@ class GLWatchFace : Gles2WatchFaceService() {
             return bb.asFloatBuffer().apply {
                 put(data)
                 position(0)
+            }
+        }
+
+        private fun getFragmentShaderRes(): Int {
+            return fragmentShaderResArray[currentIndex].apply {
+                currentIndex++
+                if (currentIndex > fragmentShaderResArray.size - 1) {
+                    currentIndex = 0
+                }
             }
         }
     }
