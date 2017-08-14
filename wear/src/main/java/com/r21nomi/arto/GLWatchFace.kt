@@ -5,7 +5,10 @@ import android.opengl.GLES20
 import android.os.Bundle
 import android.support.wearable.watchface.Gles2WatchFaceService
 import android.support.wearable.watchface.WatchFaceService
+import android.util.Log
 import android.view.SurfaceHolder
+import com.google.android.gms.common.api.GoogleApiClient
+import com.google.android.gms.wearable.*
 import java.io.IOException
 import java.io.InputStream
 import java.nio.ByteBuffer
@@ -16,6 +19,11 @@ import java.nio.FloatBuffer
  * Created by r21nomi on 2017/08/12.
  */
 class GLWatchFace : Gles2WatchFaceService() {
+
+    private companion object {
+        private val PATH_WITH_FEATURE = "/watch_face_config/gl"
+        private val KEY_FRAGMENT_SHADER_PROGRAM = "fragment_shader_program"
+    }
 
     override fun onCreateEngine(): Gles2WatchFaceService.Engine {
         return Engine()
@@ -63,6 +71,42 @@ class GLWatchFace : Gles2WatchFaceService() {
                 R.raw.fragment_2
         )
 
+        private val googleConnectionCallback = object : GoogleApiClient.ConnectionCallbacks {
+            override fun onConnected(connectionHint: Bundle?) {
+                Wearable.DataApi.addListener(googleApiClient, dataListener)
+            }
+
+            override fun onConnectionSuspended(cause: Int) {
+                // no-op
+            }
+        }
+
+        private val googleConnectionFailedListener = GoogleApiClient.OnConnectionFailedListener {
+            // TODO：Error handling
+        }
+
+        private val dataListener = DataApi.DataListener { dataEvents: DataEventBuffer ->
+            dataEvents.forEach { event ->
+                if (event.type == DataEvent.TYPE_CHANGED) {
+                    if (event.dataItem.uri.path == PATH_WITH_FEATURE) {
+                        val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                        val dataMap = dataMapItem.dataMap
+                        val program = dataMap.getString(KEY_FRAGMENT_SHADER_PROGRAM)
+
+                        Log.d(this@GLWatchFace.javaClass.name, "Changed data : $program")
+
+                        init(program)
+                    }
+                }
+            }
+        }
+
+        private val googleApiClient: GoogleApiClient = GoogleApiClient.Builder(this@GLWatchFace)
+                .addConnectionCallbacks(googleConnectionCallback)
+                .addOnConnectionFailedListener(googleConnectionFailedListener)
+                .addApi(Wearable.API)
+                .build()
+
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
 
@@ -73,7 +117,7 @@ class GLWatchFace : Gles2WatchFaceService() {
         override fun onGlContextCreated() {
             super.onGlContextCreated()
 
-            init()
+            init(loadRawResource(applicationContext, getFragmentShaderRes()))
         }
 
         override fun onGlSurfaceCreated(width: Int, height: Int) {
@@ -88,11 +132,11 @@ class GLWatchFace : Gles2WatchFaceService() {
         override fun onDraw() {
             super.onDraw()
 
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
+
             if (isInAmbientMode) return
 
             time += 0.01f
-
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
             // position
             GLES20.glVertexAttribPointer(positionsLoc, 3, GLES20.GL_FLOAT, false, 0, positionsBuffer)
@@ -116,6 +160,18 @@ class GLWatchFace : Gles2WatchFaceService() {
             invalidate()
         }
 
+        override fun onVisibilityChanged(visible: Boolean) {
+            super.onVisibilityChanged(visible)
+
+            if (visible) {
+                googleApiClient.connect()
+
+            } else if (googleApiClient.isConnected) {
+                Wearable.DataApi.removeListener(googleApiClient, dataListener)
+                googleApiClient.disconnect()
+            }
+        }
+
         override fun onAmbientModeChanged(inAmbientMode: Boolean) {
             super.onAmbientModeChanged(inAmbientMode)
 
@@ -124,7 +180,7 @@ class GLWatchFace : Gles2WatchFaceService() {
 
                 if (!ambient) {
                     // TODO: Change shader from sender request.
-                    init()
+                    init(loadRawResource(applicationContext, getFragmentShaderRes()))
                 }
 
                 invalidate()
@@ -137,7 +193,7 @@ class GLWatchFace : Gles2WatchFaceService() {
             lowBitAmbient = properties.getBoolean(WatchFaceService.PROPERTY_LOW_BIT_AMBIENT, false)
         }
 
-        private fun init() {
+        private fun init(fragmentShaderProgram: String) {
             programId = GLES20.glCreateProgram()
 
             GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER).let { vertexShader ->
@@ -147,7 +203,7 @@ class GLWatchFace : Gles2WatchFaceService() {
             }
 
             GLES20.glCreateShader(GLES20.GL_FRAGMENT_SHADER).let { fragmentShader ->
-                GLES20.glShaderSource(fragmentShader, loadRawResource(applicationContext, getFragmentShaderRes()))
+                GLES20.glShaderSource(fragmentShader, fragmentShaderProgram)
                 GLES20.glCompileShader(fragmentShader)
                 GLES20.glAttachShader(programId, fragmentShader)
             }
