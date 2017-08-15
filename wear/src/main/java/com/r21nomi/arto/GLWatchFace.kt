@@ -1,6 +1,7 @@
 package com.r21nomi.arto
 
 import android.content.Context
+import android.net.Uri
 import android.opengl.GLES20
 import android.os.Bundle
 import android.support.wearable.watchface.Gles2WatchFaceService
@@ -21,6 +22,7 @@ import java.nio.FloatBuffer
 class GLWatchFace : Gles2WatchFaceService() {
 
     private companion object {
+        private val SCHEME = "wear"
         private val PATH_WITH_FEATURE = "/watch_face_config/gl"
         private val KEY_FRAGMENT_SHADER_PROGRAM = "fragment_shader_program"
     }
@@ -74,17 +76,25 @@ class GLWatchFace : Gles2WatchFaceService() {
         private val googleConnectionCallback = object : GoogleApiClient.ConnectionCallbacks {
             override fun onConnected(connectionHint: Bundle?) {
                 Wearable.DataApi.addListener(googleApiClient, dataListener)
+
+                Log.d(this@GLWatchFace.javaClass.name, "onConnected: " + connectionHint)
+
+                setData()
             }
 
             override fun onConnectionSuspended(cause: Int) {
-                // no-op
+                Log.d(this@GLWatchFace.javaClass.name, "onConnectionSuspended")
             }
         }
 
         private val googleConnectionFailedListener = GoogleApiClient.OnConnectionFailedListener {
             // TODO：Error handling
+            Log.d(this@GLWatchFace.javaClass.name, "onConnectionFailed")
         }
 
+        /**
+         * This will be called ONLY in case of requested data is different from past received one.
+         */
         private val dataListener = DataApi.DataListener { dataEvents: DataEventBuffer ->
             dataEvents.forEach { event ->
                 if (event.type == DataEvent.TYPE_CHANGED) {
@@ -95,7 +105,11 @@ class GLWatchFace : Gles2WatchFaceService() {
 
                         Log.d(this@GLWatchFace.javaClass.name, "Changed data : $program")
 
+                        saveData(dataMap)
+
                         init(program)
+
+                        invalidate()
                     }
                 }
             }
@@ -178,11 +192,6 @@ class GLWatchFace : Gles2WatchFaceService() {
             if (ambient != inAmbientMode) {
                 ambient = inAmbientMode
 
-                if (!ambient) {
-                    // TODO: Change shader from sender request.
-                    init(loadRawResource(applicationContext, getFragmentShaderRes()))
-                }
-
                 invalidate()
             }
         }
@@ -243,6 +252,66 @@ class GLWatchFace : Gles2WatchFaceService() {
                     currentIndex = 0
                 }
             }
+        }
+
+        /**
+         * Set saved data.
+         */
+        private fun setData() {
+            Wearable.NodeApi.getLocalNode(googleApiClient).setResultCallback { getLocalNodeResult ->
+                val uri = getLocalNodeResult.node.id.let { localNode ->
+                    Uri.Builder()
+                            .scheme(SCHEME)
+                            .path(PATH_WITH_FEATURE)
+                            .authority(localNode)
+                            .build()
+                }
+
+                Wearable.DataApi.getDataItem(googleApiClient, uri)
+                        .setResultCallback setResultCallback1@{ dataItemResult: DataApi.DataItemResult ->
+                            Log.d(this@GLWatchFace.javaClass.canonicalName, "fetchConfigDataMap onResult")
+
+                            if (!dataItemResult.status.isSuccess) {
+                                Log.e(this@GLWatchFace.javaClass.canonicalName, "Data couldn't be set.")
+                                return@setResultCallback1
+                            }
+
+                            dataItemResult.dataItem?.let { item ->
+                                DataMapItem.fromDataItem(item).let { dataMapItem ->
+                                    Log.d(this@GLWatchFace.javaClass.canonicalName, "Data has successfully set")
+                                    init(dataMapItem.dataMap.getString(KEY_FRAGMENT_SHADER_PROGRAM))
+                                    invalidate()
+                                }
+                            }
+                        }
+            }
+        }
+
+        /**
+         * Save received data.
+         */
+        private fun saveData(data: DataMap) {
+            val putDataMapRequest = PutDataMapRequest.create(PATH_WITH_FEATURE).apply {
+                this.setUrgent()
+                this.dataMap.putAll(data)
+            }
+
+            Wearable.DataApi.putDataItem(googleApiClient, putDataMapRequest.asPutDataRequest())
+                    .setResultCallback { dataItemResult: DataApi.DataItemResult ->
+                        Log.d(this@GLWatchFace.javaClass.canonicalName, "putDataItem onResult")
+
+                        if (!dataItemResult.status.isSuccess) {
+                            Log.e(this@GLWatchFace.javaClass.canonicalName, "Data couldn't be saved.")
+                            return@setResultCallback
+                        }
+
+                        dataItemResult.dataItem?.let { item ->
+                            val dataMapItem = DataMapItem.fromDataItem(item)
+                            val dataMap: DataMap = dataMapItem.dataMap
+
+                            Log.d(this@GLWatchFace.javaClass.canonicalName, "Data has successfully saved : ${dataMap.getString(KEY_FRAGMENT_SHADER_PROGRAM)}")
+                        }
+                    }
         }
     }
 }
