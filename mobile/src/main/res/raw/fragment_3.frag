@@ -9,65 +9,35 @@ varying vec2 texcoordVarying;
 uniform vec2 resolution;
 uniform float time;
 
-float speed = 2.0;
-
-vec2 random2(vec2 p) {
-	return fract(sin(vec2(dot(p,vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+float random (in float x) {
+    return fract(sin(x) * 1e4);
 }
 
-mat2 rotate2d(float _angle){
-	return mat2(cos(_angle), -sin(_angle),  sin(_angle), cos(_angle));
+float random (in vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233)))* 43758.5453123);
 }
 
-float map(float value, float beforeMin, float beforeMax, float afterMin, float afterMax) {
-	return afterMin + (afterMax - afterMin) * ((value - beforeMin) / (beforeMax - beforeMin));
+float patternize(vec2 st, vec2 v, float t) {
+    vec2 p = floor(st+v);
+    return step(t, random(100.+p*.000001)+random(p.x)*0.5);
 }
 
 void main( void ) {
-	vec2 st = (gl_FragCoord.xy * 2.0 - resolution) / min(resolution.x, resolution.y);
+	vec2 st = gl_FragCoord.xy / resolution.xy;
+	st.x *= resolution.x / resolution.y;
+	vec3 color;
 
-	st *= 10.0;
+	vec2 ipos = floor(st);
+	vec2 fpos = fract(st);
 
-	st -= 0.5;
-	st *= rotate2d(time * 0.2);
-	st += 0.5;
+	vec2 grid = vec2(100.0, 20.0);
+	st *= grid;
+	st /= vec2(1.0, 0.01);
 
-	vec2 i_st = floor(st);
-	vec2 f_st = fract(st);
+	vec2 vel = vec2(time * max(grid.x, grid.y));
+	vel *= vec2(-1.0, 0.0) * random(1.0+ipos.y);
 
-	float m_dist = 1.0;
-
-	for (int j = -1; j <= 1; j++) {
-		for (int i = -1; i <= 1; i++) {
-			// Neighbor place in the grid
-			vec2 neighbor = vec2(float(i), float(j));
-
-			// Random position from current + neighbor place in the grid
-			vec2 offset = random2(i_st + neighbor);
-
-			// Animate the offset
-			offset = vec2(
-				map(sin(time * speed + TWO_PI * offset).x, -1.0, 1.0, 0.0, 1.0),
-				map(sin(time * speed + TWO_PI * offset).y, -1.0, 1.0, 0.0, 1.0)
-			);
-
-			// Position of the cell
-			vec2 pos = neighbor + offset - f_st;
-
-			// Cell distance
-			float dist = length(pos);
-
-			// Metaball
-			m_dist = min(m_dist, m_dist * dist);
-		}
-	}
-
-	vec3 color = vec3(0.0);
-
-	color.rb += smoothstep(0.1, 0.01, m_dist);
-
-	// Spotlight
-	color *= (1.0 - length(st * 0.08 ));
+	color = vec3(patternize(st, vel, 0.5), 1.0, 1.0);
 
 	gl_FragColor = vec4(color, 1.0);
 }

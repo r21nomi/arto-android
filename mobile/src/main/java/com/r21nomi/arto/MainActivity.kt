@@ -32,7 +32,9 @@ class MainActivity : AppCompatActivity() {
     private val fragmentShaderResArray = listOf(
             R.raw.fragment_1,
             R.raw.fragment_2,
-            R.raw.fragment_3
+            R.raw.fragment_3,
+            R.raw.fragment_4,
+            R.raw.fragment_5
     )
 
     private val peerId: String? by lazy {

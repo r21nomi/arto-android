@@ -30,7 +30,7 @@ void main(void){
         float radius = map(sin((uv.x + uv.y) + time * 8.0), -1.0, 1.0, 0.1, 0.4);
         float v = 1.0 - step(radius, length(newUv));  // Circle
         v *= time;
-        color.rb += v;
+        color.rg += v;
 
         newUv += 0.5;
     }
