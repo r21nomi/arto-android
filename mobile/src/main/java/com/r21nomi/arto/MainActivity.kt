@@ -17,6 +17,12 @@ import com.google.android.gms.wearable.DataApi
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.r21nomi.arto.lib.Action
+import com.r21nomi.arto.lib.Dispatcher
+import com.r21nomi.arto.main.MainAction
+import com.r21nomi.arto.main.MainActionCreator
+import com.r21nomi.arto.main.MainStore
+import io.reactivex.functions.Consumer
 import java.io.IOException
 import java.io.InputStream
 
@@ -27,6 +33,10 @@ class MainActivity : AppCompatActivity() {
         private val PATH_WITH_FEATURE = "/watch_face_config/gl"
         private val KEY_FRAGMENT_SHADER_PROGRAM = "fragment_shader_program"
     }
+
+    private val dispatcher: Dispatcher = Dispatcher()
+    private val mainActionCreator: MainActionCreator = MainActionCreator(dispatcher)
+    private val mainStore: MainStore = MainStore(dispatcher)
 
     private var currentIndex: Int = 0
     private val fragmentShaderResArray = listOf(
@@ -95,13 +105,28 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.peerId).text = peerId?.let { "Peer ID : $it" } ?: "No Peer ID"
 
         findViewById<View>(R.id.changeProgramButton).setOnClickListener {
-            sendProgram(KEY_FRAGMENT_SHADER_PROGRAM, loadRawResource())
+            mainActionCreator.changeShader(loadRawResource())
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        mainStore.observeOnMainThread(Consumer {
+            when (it.key) {
+                MainAction.STORE_INITIALIZED -> updateUI(it)
+                MainAction.CHANGE_SHADER -> changeShader()
+            }
+        })
     }
 
     override fun onStart() {
         super.onStart()
         googleApiClient.connect()
+
+        if (!mainStore.initialized) {
+            mainActionCreator.init()
+        }
     }
 
     override fun onStop() {
@@ -142,5 +167,13 @@ class MainActivity : AppCompatActivity() {
                 currentIndex = 0
             }
         }
+    }
+
+    private fun updateUI(action: Action<Any>) {
+        findViewById<TextView>(R.id.shader).text = mainStore.shaderList.takeIf { it.isNotEmpty() }?.get(0) ?: "None"
+    }
+
+    private fun changeShader() {
+        sendProgram(KEY_FRAGMENT_SHADER_PROGRAM, mainStore.shader)
     }
 }
