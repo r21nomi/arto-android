@@ -1,9 +1,8 @@
-package com.r21nomi.arto
+package com.r21nomi.arto.ui.main
 
 import android.content.ComponentName
 import android.net.Uri
 import android.os.Bundle
-import android.support.v7.app.AppCompatActivity
 import android.support.wearable.companion.WatchFaceCompanion
 import android.util.Log
 import android.view.View
@@ -17,16 +16,18 @@ import com.google.android.gms.wearable.DataApi
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.r21nomi.arto.R
 import com.r21nomi.arto.lib.Action
-import com.r21nomi.arto.lib.Dispatcher
-import com.r21nomi.arto.main.MainAction
-import com.r21nomi.arto.main.MainActionCreator
-import com.r21nomi.arto.main.MainStore
+import com.r21nomi.arto.ui.BaseActivity
+import com.r21nomi.arto.ui.main.di.DaggerMainComponent
+import com.r21nomi.arto.ui.main.di.MainComponent
+import com.r21nomi.arto.ui.main.di.MainModule
 import io.reactivex.functions.Consumer
 import java.io.IOException
 import java.io.InputStream
+import javax.inject.Inject
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity<MainComponent>() {
 
     private companion object {
         private val SCHEME = "wear"
@@ -34,9 +35,8 @@ class MainActivity : AppCompatActivity() {
         private val KEY_FRAGMENT_SHADER_PROGRAM = "fragment_shader_program"
     }
 
-    private val dispatcher: Dispatcher = Dispatcher()
-    private val mainActionCreator: MainActionCreator = MainActionCreator(dispatcher)
-    private val mainStore: MainStore = MainStore(dispatcher)
+    @Inject lateinit var mainActionCreator: MainActionCreator
+    @Inject lateinit var mainStore: MainStore
 
     private var currentIndex: Int = 0
     private val fragmentShaderResArray = listOf(
@@ -92,6 +92,17 @@ class MainActivity : AppCompatActivity() {
                 .addOnConnectionFailedListener(connectionFailedListener)
                 .addApi(Wearable.API)
                 .build()
+    }
+
+    override fun buildComponent(): MainComponent {
+        return DaggerMainComponent.builder()
+                .applicationComponent(getApplicationComponent())
+                .mainModule(MainModule())
+                .build()
+    }
+
+    override fun injectDependency(component: MainComponent) {
+        component.inject(this)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,4 +1,4 @@
-package com.r21nomi.arto.main
+package com.r21nomi.arto.ui.main
 
 import com.r21nomi.arto.lib.Action
 
