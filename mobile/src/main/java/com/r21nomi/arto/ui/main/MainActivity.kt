@@ -181,7 +181,13 @@ class MainActivity : BaseActivity<MainComponent>() {
     }
 
     private fun updateUI(action: Action<Any>) {
-        findViewById<TextView>(R.id.shader).text = mainStore.shaderList.takeIf { it.isNotEmpty() }?.get(0) ?: "None"
+        findViewById<TextView>(R.id.shader).text = mainStore.shaderList
+                .takeIf { it.isNotEmpty() }
+                ?.let { previewShaders ->
+                    previewShaders.map {
+                        it.getUrl()
+                    }.reduce { acc, s -> "$acc \n $s" }
+                } ?: "None"
     }
 
     private fun changeShader() {

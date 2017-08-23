@@ -3,21 +3,26 @@ package com.r21nomi.arto.ui.main
 import android.util.Log
 import com.r21nomi.arto.lib.ActionCreator
 import com.r21nomi.arto.lib.Dispatcher
-import com.r21nomi.arto.model.ShaderRepository
+import com.r21nomi.arto.model.PreviewShaderRepository
 import io.reactivex.schedulers.Schedulers
 import javax.inject.Inject
 
 /**
  * Created by r21nomi on 2017/08/23.
  */
-class MainActionCreator @Inject constructor(dispatcher: Dispatcher) : ActionCreator(dispatcher) {
+class MainActionCreator @Inject constructor(
+        dispatcher: Dispatcher,
+        private val previewShaderRepository: PreviewShaderRepository
+) : ActionCreator(dispatcher) {
 
-    private val shaderRepository: ShaderRepository = ShaderRepository()
+    companion object {
+        private val LIMIT = 10
+    }
 
     fun init() {
-        shaderRepository
-                .getShader()
-                .doOnSuccess { dispatchSkipNotify(MainAction.SHADER, it) }
+        previewShaderRepository
+                .fetch(LIMIT)
+                .doOnSuccess { dispatchSkipNotify(MainAction.PREVIEW_SHADERS, it) }
                 .subscribeOn(Schedulers.io())
                 .subscribe({
                     dispatch(MainAction.STORE_INITIALIZED, true)
