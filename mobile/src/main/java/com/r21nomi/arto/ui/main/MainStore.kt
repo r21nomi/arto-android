@@ -1,14 +1,15 @@
-package com.r21nomi.arto.main
+package com.r21nomi.arto.ui.main
 
 import com.r21nomi.arto.lib.Dispatcher
 import com.r21nomi.arto.lib.Store
 import io.reactivex.functions.Consumer
+import javax.inject.Inject
 
 
 /**
  * Created by r21nomi on 2017/08/23.
  */
-class MainStore(dispatcher: Dispatcher) : Store(dispatcher) {
+class MainStore @Inject constructor(dispatcher: Dispatcher) : Store(dispatcher) {
 
     var shaderList: MutableList<String> = mutableListOf()
     var shader = ""

@@ -1,15 +1,16 @@
-package com.r21nomi.arto.main
+package com.r21nomi.arto.ui.main
 
 import android.util.Log
 import com.r21nomi.arto.lib.ActionCreator
 import com.r21nomi.arto.lib.Dispatcher
 import com.r21nomi.arto.model.ShaderRepository
 import io.reactivex.schedulers.Schedulers
+import javax.inject.Inject
 
 /**
  * Created by r21nomi on 2017/08/23.
  */
-class MainActionCreator(dispatcher: Dispatcher) : ActionCreator(dispatcher) {
+class MainActionCreator @Inject constructor(dispatcher: Dispatcher) : ActionCreator(dispatcher) {
 
     private val shaderRepository: ShaderRepository = ShaderRepository()
 
