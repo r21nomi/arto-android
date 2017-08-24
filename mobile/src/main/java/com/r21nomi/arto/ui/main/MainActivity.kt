@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.support.wearable.companion.WatchFaceCompanion
 import android.util.Log
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
@@ -16,6 +17,7 @@ import com.google.android.gms.wearable.DataApi
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.r21nomi.arto.GlideApp
 import com.r21nomi.arto.R
 import com.r21nomi.arto.lib.Action
 import com.r21nomi.arto.ui.BaseActivity
@@ -181,7 +183,20 @@ class MainActivity : BaseActivity<MainComponent>() {
     }
 
     private fun updateUI(action: Action<Any>) {
-        findViewById<TextView>(R.id.shader).text = mainStore.shaderList.takeIf { it.isNotEmpty() }?.get(0) ?: "None"
+        findViewById<TextView>(R.id.shader).text = mainStore.shaderList
+                .takeIf { it.isNotEmpty() }
+                ?.let { previewShaders ->
+                    findViewById<ImageView>(R.id.thumb).let { imageView ->
+                        GlideApp.with(this)
+                                .load(previewShaders[0].getUrl())
+                                .fitCenter()
+                                .into(imageView)
+                    }
+
+                    previewShaders.map {
+                        it.getUrl()
+                    }.reduce { acc, s -> "$acc \n $s" }
+                } ?: "None"
     }
 
     private fun changeShader() {

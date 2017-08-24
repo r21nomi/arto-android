@@ -1,5 +1,6 @@
 package com.r21nomi.arto.ui.main
 
+import com.r21nomi.arto.data.shaderResponse.entity.PreviewShader
 import com.r21nomi.arto.lib.Dispatcher
 import com.r21nomi.arto.lib.Store
 import io.reactivex.functions.Consumer
@@ -11,13 +12,13 @@ import javax.inject.Inject
  */
 class MainStore @Inject constructor(dispatcher: Dispatcher) : Store(dispatcher) {
 
-    var shaderList: MutableList<String> = mutableListOf()
+    var shaderList: MutableList<PreviewShader> = mutableListOf()
     var shader = ""
     var initialized = false
 
     init {
-        on(MainAction.SHADER, Consumer {
-            shaderList.addAll(it.value as MutableList<String>)
+        on(MainAction.PREVIEW_SHADERS, Consumer {
+            shaderList.addAll(it.value as List<PreviewShader>)
         })
 
         on(MainAction.STORE_INITIALIZED, Consumer {

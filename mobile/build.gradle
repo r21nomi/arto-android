@@ -2,6 +2,12 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 
+def static getSecretValue(name){
+    def Properties props = new Properties()
+    props.load(new FileInputStream(new File("secrets.properties")))
+    return props[name]
+}
+
 android {
     compileSdkVersion 26
     buildToolsVersion "26.0.1"
@@ -12,6 +18,8 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "SHADERTOY_API_KEY", "\"" + getSecretValue("SHADERTOY_API_KEY") + "\"")
     }
     buildTypes {
         release {
@@ -37,9 +45,17 @@ dependencies {
     compile 'com.android.support:appcompat-v7:26.0.0'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
 
+    // UI
+    compile 'com.github.bumptech.glide:glide:4.0.0'
+    kapt 'com.github.bumptech.glide:compiler:4.0.0'
+
     // Network
+    compile 'com.squareup.okhttp3:okhttp:3.8.1'
+    compile 'com.squareup.okhttp3:logging-interceptor:3.8.1'
     compile 'com.squareup.retrofit2:retrofit:2.3.0'
     compile 'com.squareup.retrofit2:adapter-rxjava2:2.3.0'
+    compile 'com.squareup.retrofit2:converter-moshi:2.3.0'
+    compile 'com.squareup.moshi:moshi:1.3.1'
 
     // Rx
     compile "io.reactivex.rxjava2:rxjava:2.1.3"
