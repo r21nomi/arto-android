@@ -1,5 +1,6 @@
 package com.r21nomi.arto.ui.main
 
+import com.r21nomi.arto.data.shader.entity.Shader
 import com.r21nomi.arto.data.shaderResponse.entity.PreviewShader
 import com.r21nomi.arto.lib.Dispatcher
 import com.r21nomi.arto.lib.Store
@@ -13,7 +14,7 @@ import javax.inject.Inject
 class MainStore @Inject constructor(dispatcher: Dispatcher) : Store(dispatcher) {
 
     var shaderList: MutableList<PreviewShader> = mutableListOf()
-    var shader = ""
+    var shader: Shader? = null
     var initialized = false
 
     init {
@@ -26,7 +27,7 @@ class MainStore @Inject constructor(dispatcher: Dispatcher) : Store(dispatcher) 
         })
 
         on(MainAction.CHANGE_SHADER, Consumer {
-            shader = it.value as String
+            shader = it.value as Shader
         })
     }
 }

@@ -1,5 +1,6 @@
 package com.r21nomi.arto.data.di
 
+import com.r21nomi.arto.data.shader.ShaderModule
 import com.r21nomi.arto.data.shaderResponse.ShaderResponseModule
 import dagger.Module
 import dagger.Provides
@@ -15,7 +16,8 @@ import javax.inject.Singleton
  */
 @Module(
         includes = arrayOf(
-                ShaderResponseModule::class
+                ShaderResponseModule::class,
+                ShaderModule::class
         )
 )
 class DataModule {

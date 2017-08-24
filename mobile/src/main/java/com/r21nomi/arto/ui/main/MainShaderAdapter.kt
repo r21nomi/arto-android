@@ -13,7 +13,8 @@ import com.r21nomi.arto.data.shaderResponse.entity.PreviewShader
 /**
  * Created by r21nomi on 2017/08/24.
  */
-class MainShaderAdapter(private val dataSet: MutableList<PreviewShader>)
+class MainShaderAdapter(private val dataSet: MutableList<PreviewShader>,
+                        val listener: Listener)
     : RecyclerView.Adapter<MainShaderAdapter.ViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -21,6 +22,11 @@ class MainShaderAdapter(private val dataSet: MutableList<PreviewShader>)
                 .inflate(R.layout.main_shader_viewholder, parent, false)
                 .let {
                     ViewHolder(it)
+                }
+                .apply {
+                    thumb.setOnClickListener {
+                        listener.onThumbClick(dataSet[adapterPosition], it)
+                    }
                 }
     }
 
@@ -43,5 +49,9 @@ class MainShaderAdapter(private val dataSet: MutableList<PreviewShader>)
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val thumb: ImageView by lazy { view.findViewById<ImageView>(R.id.thumb) }
+    }
+
+    interface Listener {
+        fun onThumbClick(previewShader: PreviewShader, view: View)
     }
 }
