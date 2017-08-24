@@ -2,6 +2,7 @@ package com.r21nomi.arto.model.di
 
 import com.r21nomi.arto.data.di.DataModule
 import com.r21nomi.arto.model.PreviewShaderRepository
+import com.r21nomi.arto.model.ShaderRepository
 import dagger.Module
 
 /**
@@ -19,5 +20,7 @@ class ModelModule {
      */
     interface Provider {
         fun previewShaderRepository(): PreviewShaderRepository
+
+        fun shaderRepository(): ShaderRepository
     }
 }

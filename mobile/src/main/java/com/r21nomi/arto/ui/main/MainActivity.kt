@@ -9,6 +9,7 @@ import android.support.wearable.companion.WatchFaceCompanion
 import android.util.Log
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks
@@ -20,6 +21,7 @@ import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.r21nomi.androidshaderviewer.ui.common.adapter.decoration.MainShaderItemDecoration
 import com.r21nomi.arto.R
+import com.r21nomi.arto.data.shaderResponse.entity.PreviewShader
 import com.r21nomi.arto.lib.Action
 import com.r21nomi.arto.ui.BaseActivity
 import com.r21nomi.arto.ui.main.di.DaggerMainComponent
@@ -51,7 +53,11 @@ class MainActivity : BaseActivity<MainComponent>() {
     )
 
     private val recyclerView: RecyclerView by lazy { findViewById<RecyclerView>(R.id.recyclerView) }
-    private val mainShaderAdapter: MainShaderAdapter = MainShaderAdapter(mutableListOf())
+    private val mainShaderAdapter: MainShaderAdapter = MainShaderAdapter(mutableListOf(), object : MainShaderAdapter.Listener {
+        override fun onThumbClick(previewShader: PreviewShader, view: View) {
+            mainActionCreator.changeShader(previewShader.id)
+        }
+    })
 
     private val peerId: String? by lazy {
         intent.getStringExtra(WatchFaceCompanion.EXTRA_PEER_ID)
@@ -63,7 +69,7 @@ class MainActivity : BaseActivity<MainComponent>() {
 
             Wearable.DataApi.addListener(googleApiClient, dataListener)
 
-            if (peerId != null) {
+            if (isWearConnected()) {
                 val builder = Uri.Builder()
                 val uri = builder.scheme(SCHEME).path(PATH_WITH_FEATURE).authority(peerId).build()
                 Wearable.DataApi.getDataItem(googleApiClient, uri).setResultCallback(resultCallback)
@@ -164,8 +170,12 @@ class MainActivity : BaseActivity<MainComponent>() {
         super.onStop()
     }
 
+    private fun isWearConnected(): Boolean {
+        return peerId != null
+    }
+
     private fun sendProgram(configKey: String, program: String) {
-        if (peerId == null) return
+        if (!isWearConnected()) return
 
         PutDataMapRequest.create(PATH_WITH_FEATURE).let { dataMap ->
             dataMap.dataMap.putString(configKey, program)
@@ -204,6 +214,11 @@ class MainActivity : BaseActivity<MainComponent>() {
     }
 
     private fun changeShader() {
-        sendProgram(KEY_FRAGMENT_SHADER_PROGRAM, mainStore.shader)
+        mainStore.shader?.content?.renderpass?.first()?.code?.let {
+            sendProgram(KEY_FRAGMENT_SHADER_PROGRAM, loadRawResource())
+            // Cannot show shader since shadertoy's one is too heavy for GPU.
+//            sendProgram(KEY_FRAGMENT_SHADER_PROGRAM, it)
+            Toast.makeText(this, "Shader is changed", Toast.LENGTH_SHORT).show()
+        }
     }
 }

@@ -4,6 +4,7 @@ import android.util.Log
 import com.r21nomi.arto.lib.ActionCreator
 import com.r21nomi.arto.lib.Dispatcher
 import com.r21nomi.arto.model.PreviewShaderRepository
+import com.r21nomi.arto.model.ShaderRepository
 import io.reactivex.schedulers.Schedulers
 import javax.inject.Inject
 
@@ -12,7 +13,8 @@ import javax.inject.Inject
  */
 class MainActionCreator @Inject constructor(
         dispatcher: Dispatcher,
-        private val previewShaderRepository: PreviewShaderRepository
+        private val previewShaderRepository: PreviewShaderRepository,
+        private val shaderRepository: ShaderRepository
 ) : ActionCreator(dispatcher) {
 
     companion object {
@@ -31,7 +33,13 @@ class MainActionCreator @Inject constructor(
                 })
     }
 
-    fun changeShader(shader: String) {
-        dispatch(MainAction.CHANGE_SHADER, shader)
+    fun changeShader(id: String) {
+        shaderRepository.fetch(id)
+                .subscribeOn(Schedulers.io())
+                .subscribe({
+                    dispatch(MainAction.CHANGE_SHADER, it)
+                }, {
+                    Log.e("", it.localizedMessage)
+                })
     }
 }

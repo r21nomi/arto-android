@@ -11,7 +11,7 @@ import retrofit2.http.Query
  */
 interface ShaderApi {
 
-    @GET("/v1/shaders/{shaderId}")
+    @GET("/api/v1/shaders/{shaderId}")
     fun getShader(
             @Path("shaderId") shaderId: String,
             @Query("key") key: String
