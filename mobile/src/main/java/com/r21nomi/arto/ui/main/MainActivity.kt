@@ -3,10 +3,11 @@ package com.r21nomi.arto.ui.main
 import android.content.ComponentName
 import android.net.Uri
 import android.os.Bundle
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
 import android.support.wearable.companion.WatchFaceCompanion
 import android.util.Log
 import android.view.View
-import android.widget.ImageView
 import android.widget.TextView
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.api.GoogleApiClient
@@ -17,7 +18,7 @@ import com.google.android.gms.wearable.DataApi
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
-import com.r21nomi.arto.GlideApp
+import com.r21nomi.androidshaderviewer.ui.common.adapter.decoration.MainShaderItemDecoration
 import com.r21nomi.arto.R
 import com.r21nomi.arto.lib.Action
 import com.r21nomi.arto.ui.BaseActivity
@@ -48,6 +49,9 @@ class MainActivity : BaseActivity<MainComponent>() {
             R.raw.fragment_4,
             R.raw.fragment_5
     )
+
+    private val recyclerView: RecyclerView by lazy { findViewById<RecyclerView>(R.id.recyclerView) }
+    private val mainShaderAdapter: MainShaderAdapter = MainShaderAdapter(mutableListOf())
 
     private val peerId: String? by lazy {
         intent.getStringExtra(WatchFaceCompanion.EXTRA_PEER_ID)
@@ -109,16 +113,26 @@ class MainActivity : BaseActivity<MainComponent>() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.main_activity)
 
-        val name: ComponentName? = intent.getParcelableExtra<ComponentName>(WatchFaceCompanion.EXTRA_WATCH_FACE_COMPONENT)
+        // TODO: Delete
+        intent.getParcelableExtra<ComponentName>(WatchFaceCompanion.EXTRA_WATCH_FACE_COMPONENT)
+                .let { name ->
+                    findViewById<TextView>(R.id.componentName).text = name?.className?.let {
+                        "Connected to $it"
+                    } ?: "No Component"
+                }
 
-        findViewById<TextView>(R.id.componentName).text = name?.className?.let { "Connected to $it" } ?: "No Component"
-
-        findViewById<TextView>(R.id.peerId).text = peerId?.let { "Peer ID : $it" } ?: "No Peer ID"
-
+        // TODO: Delete
         findViewById<View>(R.id.changeProgramButton).setOnClickListener {
             mainActionCreator.changeShader(loadRawResource())
+        }
+
+        recyclerView.run {
+            setHasFixedSize(true)
+            addItemDecoration(MainShaderItemDecoration(this@MainActivity))
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = mainShaderAdapter
         }
     }
 
@@ -156,9 +170,7 @@ class MainActivity : BaseActivity<MainComponent>() {
         PutDataMapRequest.create(PATH_WITH_FEATURE).let { dataMap ->
             dataMap.dataMap.putString(configKey, program)
             dataMap.asPutDataRequest().let { request ->
-                val result = Wearable.DataApi.putDataItem(googleApiClient, request)
-
-                result
+                Wearable.DataApi.putDataItem(googleApiClient, request)
             }
         }
 
@@ -183,20 +195,12 @@ class MainActivity : BaseActivity<MainComponent>() {
     }
 
     private fun updateUI(action: Action<Any>) {
-        findViewById<TextView>(R.id.shader).text = mainStore.shaderList
-                .takeIf { it.isNotEmpty() }
-                ?.let { previewShaders ->
-                    findViewById<ImageView>(R.id.thumb).let { imageView ->
-                        GlideApp.with(this)
-                                .load(previewShaders[0].getUrl())
-                                .fitCenter()
-                                .into(imageView)
-                    }
+        if (mainStore.shaderList.isEmpty()) return
 
-                    previewShaders.map {
-                        it.getUrl()
-                    }.reduce { acc, s -> "$acc \n $s" }
-                } ?: "None"
+        mainShaderAdapter.run {
+            setDataSet(mainStore.shaderList)
+            notifyDataSetChanged()
+        }
     }
 
     private fun changeShader() {
