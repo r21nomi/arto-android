@@ -27,6 +27,7 @@ import com.r21nomi.arto.ui.BaseActivity
 import com.r21nomi.arto.ui.main.di.DaggerMainComponent
 import com.r21nomi.arto.ui.main.di.MainComponent
 import com.r21nomi.arto.ui.main.di.MainModule
+import com.r21nomi.arto.ui.shader_detail.ShaderDetailActivity
 import io.reactivex.functions.Consumer
 import java.io.IOException
 import java.io.InputStream
@@ -55,7 +56,9 @@ class MainActivity : BaseActivity<MainComponent>() {
     private val recyclerView: RecyclerView by lazy { findViewById<RecyclerView>(R.id.recyclerView) }
     private val mainShaderAdapter: MainShaderAdapter = MainShaderAdapter(mutableListOf(), object : MainShaderAdapter.Listener {
         override fun onThumbClick(previewShader: PreviewShader, view: View) {
-            mainActionCreator.changeShader(previewShader.id)
+//            mainActionCreator.changeShader(previewShader.id)
+
+            startActivity(ShaderDetailActivity.createIntent(this@MainActivity, previewShader.id))
         }
     })
 
